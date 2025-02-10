@@ -1,0 +1,395 @@
+// Include Libraries
+#include "Arduino.h"
+#include "NewPing.h"
+#include "Keypad.h"
+#include "Servo.h"
+ 
+// Pin Definitions
+#define HCSR04_1_PIN_TRIG 3
+#define HCSR04_1_PIN_ECHO 2
+#define HCSR04_2_PIN_TRIG 5
+#define HCSR04_2_PIN_ECHO 4
+#define KEYPAD_PIN_ROW3 11
+#define KEYPAD_PIN_ROW1 9
+#define KEYPAD_PIN_COL2 7
+#define KEYPAD_PIN_COL3 8
+#define KEYPAD_PIN_ROW2 10
+#define KEYPAD_PIN_COL1 6
+#define KEYPAD_PIN_ROW4 A0
+#define STEP 13
+#define DIR 12
+#define SERVOSM1_1_PIN_SIG  A2 //вода
+#define SERVOSM2_2_PIN_SIG  A3  // сироп
+#define SERVOSM3_3_PIN_SIG  A4 //сок апельсиновый
+#define SERVOSM4_4_PIN_SIG  A1  //диспенсер
+
+
+ 
+// Global variables and defines
+//Use this 2D array to map the keys as you desire
+char keypadkeys[ROWS][COLS] = {
+{'1','2','3'},
+{'4','5','6'},
+{'7','8','9'},
+{'*','0','#'}
+};
+const int servoSM1_1RestPosition   = 0;  //Starting position
+const int servoSM1_1TargetPosition = 100; //Position when event is detected
+const int servoSM2_2RestPosition   = 30;  //Starting position
+const int servoSM2_2TargetPosition = 130; //Position when event is detected
+const int servoSM3_3RestPosition   = 0;  //Starting position
+const int servoSM3_3TargetPosition = 100; //Position when event is detected
+const int servoSM4_4RestPosition   = 0;  //Starting position
+const int servoSM4_4TargetPosition = 100; //Position when event is detected
+String ddd;
+// object initialization
+NewPing hcsr04_1(HCSR04_1_PIN_TRIG,HCSR04_1_PIN_ECHO);
+NewPing hcsr04_2(HCSR04_2_PIN_TRIG,HCSR04_2_PIN_ECHO);
+Keypad keypad(KEYPAD_PIN_COL1,KEYPAD_PIN_COL2,KEYPAD_PIN_COL3,KEYPAD_PIN_ROW1,KEYPAD_PIN_ROW2,KEYPAD_PIN_ROW3,KEYPAD_PIN_ROW4);
+Servo servoSM1_1;
+Servo servoSM2_2;
+Servo servoSM3_3;
+Servo servoSM4_4;
+ 
+// define vars for testing menu
+int count=0;
+int d=0;
+
+
+
+ 
+void stope1(){
+      if (hcsr04_2.ping_cm()>10)
+      {
+        while (hcsr04_2.ping_cm()>10){
+        delay(10);
+        }
+      }
+}
+ 
+void stope2(){
+      if (hcsr04_1.ping_cm()>10)
+      {
+        while (hcsr04_1.ping_cm()>10){
+        delay(10);
+        }
+      }
+}
+ 
+void move(){
+      while (hcsr04_2.ping_cm()>10)
+      {
+        stepper(21000, 500, 0);
+      }
+}
+ 
+void drink1() {                                             //a. Газированная вода (50 мл.) 
+    move();
+    servoSM1_1.attach(SERVOSM1_1_PIN_SIG);          
+    servoSM1_1.write(servoSM1_1TargetPosition);   
+    delay(2700);                          
+    servoSM1_1.write(servoSM1_1RestPosition);     
+    delay(500);                       
+    servoSM1_1.detach();
+    stope1();                
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);          
+    servoSM4_4.write(servoSM4_4TargetPosition);   
+    delay(2800);                         
+    servoSM4_4.write(servoSM4_4RestPosition);     
+    delay(500);                            
+    servoSM4_4.detach();      
+    stepper(21000, 500, 0);               
+} 
+ 
+void drink2() {                                         //b. Мятный сироп (10 мл.) 
+    move();                                        
+    servoSM2_2.attach(SERVOSM2_2_PIN_SIG);          
+    servoSM2_2.write(servoSM2_2TargetPosition);   
+    delay(700);                            
+    servoSM2_2.write(servoSM2_2RestPosition);     
+    delay(500);                     
+    servoSM2_2.detach();
+    stope1();                     
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);          
+    servoSM4_4.write(servoSM4_4TargetPosition);   
+    delay(1000);                          
+    servoSM4_4.write(servoSM4_4RestPosition);     
+    delay(500);                          
+    servoSM4_4.detach();  
+    stepper(21000, 500, 0);
+} 
+ 
+void drink3() {                                                         //c. Апельсиновый сок (40 мл.)  
+    move();                                           
+    servoSM3_3.attach(SERVOSM3_3_PIN_SIG);
+    servoSM3_3.write(servoSM3_3TargetPosition);   
+    delay(2000);                            
+    servoSM3_3.write(servoSM3_3RestPosition);     
+    delay(500);                           
+    servoSM3_3.detach();
+    stope1();                     
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);          
+    servoSM4_4.write(servoSM4_4TargetPosition);   
+    delay(2100);                             
+    servoSM4_4.write(servoSM4_4RestPosition);     
+    delay(500);                            
+    servoSM4_4.detach();  
+    stepper(21000, 500, 0);
+} 
+ 
+ 
+void drink4() {
+    move();                                            //d. Лимонад “Мятный” (80 мл. газированной воды + 20 мл. мятного сиропа). 
+    servoSM1_1.attach(SERVOSM1_1_PIN_SIG);          
+    servoSM1_1.write(servoSM1_1TargetPosition);   
+    delay(4200);                        
+    servoSM1_1.write(servoSM1_1RestPosition);     
+    delay(500);                      
+    servoSM1_1.detach();
+    stope1();                     
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);          
+    servoSM4_4.write(servoSM4_4TargetPosition);   
+    delay(4300);                          
+    servoSM4_4.write(servoSM4_4RestPosition);     
+    delay(500);                  
+    servoSM4_4.detach();    
+    stope1();
+    servoSM2_2.attach(SERVOSM2_2_PIN_SIG);          
+    servoSM2_2.write(servoSM2_2TargetPosition);   
+    delay(1300);                               
+    servoSM2_2.write(servoSM2_2RestPosition);     
+    delay(500);                          
+    servoSM2_2.detach();  
+    stope1();                   
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);          
+    servoSM4_4.write(servoSM4_4TargetPosition);   
+    delay(1400);                        
+    servoSM4_4.write(servoSM4_4RestPosition);     
+    delay(500);                  
+    servoSM4_4.detach(); 
+    stepper(21000, 500, 0);                  
+} 
+ 
+void drink5() {                                             //e. Лимонад “Заводной апельсин” (30 мл. газированной воды + 50 мл. апельсинового сока). 
+    move();
+    servoSM1_1.attach(SERVOSM1_1_PIN_SIG);          
+    servoSM1_1.write(servoSM1_1TargetPosition);   
+    delay(1600);                              
+    servoSM1_1.write(servoSM1_1RestPosition);     
+    delay(500);                          
+    servoSM1_1.detach();
+    stope1();                     
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);          
+    servoSM4_4.write(servoSM4_4TargetPosition);   
+    delay(1600);                               
+    servoSM4_4.write(servoSM4_4RestPosition);     
+    delay(500);                             
+    servoSM4_4.detach();  
+    stope1();    
+    servoSM3_3.attach(SERVOSM3_3_PIN_SIG);           
+    servoSM3_3.write(servoSM3_3TargetPosition);   
+    delay(2800);                            
+    servoSM3_3.write(servoSM3_3RestPosition);     
+    delay(500);                            
+    servoSM3_3.detach();  
+    stope1();                   
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);          
+    servoSM4_4.write(servoSM4_4TargetPosition);   
+    delay(3000);                            
+    servoSM4_4.write(servoSM4_4RestPosition);     
+    delay(500);                          
+    servoSM4_4.detach(); 
+    stepper(21000, 500, 0);                
+} 
+ 
+void drink6() {                                             //f. Лимонад ‘Тройной” (35 мл. газированной воды + 45 мл. апельсинового сока + 10 мл.мятного сиропа) 
+    move();
+    servoSM1_1.attach(SERVOSM1_1_PIN_SIG);          
+    servoSM1_1.write(servoSM1_1TargetPosition);   
+    delay(1900);                              
+    servoSM1_1.write(servoSM1_1RestPosition);     
+    delay(500);                            
+    servoSM1_1.detach();     
+    stope1();                
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);          
+    servoSM4_4.write(servoSM4_4TargetPosition);   
+    delay(1900);                             
+    servoSM4_4.write(servoSM4_4RestPosition);     
+    delay(500);                             
+    servoSM4_4.detach();   
+    stope1(); 
+    servoSM2_2.attach(SERVOSM2_2_PIN_SIG);          
+    servoSM2_2.write(servoSM2_2TargetPosition);   
+    delay(700);                              
+    servoSM2_2.write(servoSM2_2RestPosition);     
+    delay(500);                              
+    servoSM2_2.detach();                     
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);          
+    stope1();
+    servoSM4_4.write(servoSM4_4TargetPosition);   
+    delay(1000);                              
+    servoSM4_4.write(servoSM4_4RestPosition);     
+    delay(500);                              
+    servoSM4_4.detach();        
+    stope1();           
+    servoSM3_3.attach(SERVOSM3_3_PIN_SIG);           
+    servoSM3_3.write(servoSM3_3TargetPosition);   
+    delay(2600);                              
+    servoSM3_3.write(servoSM3_3RestPosition);     
+    delay(500);                             
+    servoSM3_3.detach();     
+    stope1();                
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);          
+    servoSM4_4.write(servoSM4_4TargetPosition);   
+    delay(3000);                              
+    servoSM4_4.write(servoSM4_4RestPosition);     
+    delay(500);                             
+    servoSM4_4.detach();   
+    stepper(21000, 500, 0);         
+} 
+ 
+//a. Газированная вода (50 мл.) 
+//b. Мятный сироп (10 мл.) 
+//c. Апельсиновый сок (40 мл.) 
+//d. Лимонад “Мятный” (80 мл. газированной воды + 20 мл. мятного сиропа). 
+//e. Лимонад “Заводной апельсин” (30 мл. газированной воды + 50 мл. апельсинового сока). 
+//f. Лимонад ‘Тройной” (35 мл. газированной воды + 45 мл. апельсинового сока + 10 мл.мятного сиропа) 
+ 
+void stepper(unsigned int Step, int Speed, boolean Set) {
+  digitalWrite(DIR, Set);    
+  for (int i = 0; i < Step; i++){
+     digitalWrite(STEP, HIGH);
+     delayMicroseconds(Speed);
+     digitalWrite(STEP, LOW);
+     delayMicroseconds(Speed);
+  }   
+}
+ 
+// Setup the essentials for your circuit to work. It runs first every time your circuit is powered with electricity.
+void setup() 
+{
+    keypad.begin(keypadkeys);
+    servoSM1_1.attach(SERVOSM1_1_PIN_SIG);
+    servoSM1_1.write(servoSM1_1RestPosition);
+    delay(100);
+    servoSM1_1.detach();
+    servoSM2_2.attach(SERVOSM2_2_PIN_SIG);
+    servoSM2_2.write(servoSM2_2RestPosition);
+    delay(100);
+    servoSM2_2.detach();
+    servoSM3_3.attach(SERVOSM3_3_PIN_SIG);
+    servoSM3_3.write(servoSM3_3RestPosition);
+    delay(100);
+    servoSM3_3.detach();
+    servoSM4_4.attach(SERVOSM4_4_PIN_SIG);
+    servoSM4_4.write(servoSM4_4RestPosition);
+    delay(100);
+    servoSM4_4.detach();
+    pinMode(STEP, OUTPUT);
+    pinMode(DIR, OUTPUT);
+    
+ 
+    
+}
+ 
+void loop() 
+{
+    char keypadKey = keypad.getKey();
+    if (keypadKey == '7')
+    { 
+      while (count==0){
+        char keypadKey = keypad.getKey();
+        if (keypadKey == '1') 
+        {   
+        count=1; 
+        } 
+        else if (keypadKey == '2') 
+        { 
+        count=2;
+        } 
+        else if (keypadKey == '3') 
+        { 
+        count=3;
+        } 
+        else if (keypadKey == '4') 
+        { 
+        count=4;
+        }
+      }
+        char keypadKey = keypad.getKey();
+      while (count >0)
+      { 
+        char keypadKey = keypad.getKey();
+        if (keypadKey == '1') 
+        { 
+        count--; 
+        d++; 
+        ddd=ddd+"d1";
+        } 
+        else if (keypadKey == '2') 
+        { 
+        count--; 
+        d++;
+        ddd=ddd+"d2";
+        } 
+        else if (keypadKey == '3') 
+        {
+        ddd=ddd+"d3"  ;
+        count--; 
+        d++;
+        } 
+        else if (keypadKey == '4') 
+        { 
+        ddd=ddd+"d4" ;
+        count--; 
+        d++;
+        } 
+        else if (keypadKey == '5') 
+        { 
+        ddd=ddd+"d5" ; 
+        count--; 
+        d++;
+        } 
+        else if (keypadKey == '6') 
+        { 
+        ddd=ddd+"d6";
+        count--; 
+        d++;
+        }
+      }
+      while (d>0){
+        if (ddd.indexOf('1')==1){
+          drink1();
+          ddd.remove(0,2);
+          d--;
+        }
+        else if (ddd.indexOf('2')==1){
+          drink2();
+          ddd.remove(0,2);
+          d--;
+        } 
+        else if (ddd.indexOf('3')==1){
+          drink3();
+          ddd.remove(0,2);
+          d--;
+        } 
+        else if (ddd.indexOf('4')==1){
+          drink4();
+          ddd.remove(0,2);
+          d--;
+        } 
+        else if (ddd.indexOf('5')==1){
+          drink5();
+          ddd.remove(0,2);
+          d--;
+        } 
+        else if (ddd.indexOf('6')==1){
+          drink6();
+          ddd.remove(0,2);
+          d--;
+        }
+      } 
+      count=0;
+      ddd.remove(0);
+    } 
+}
